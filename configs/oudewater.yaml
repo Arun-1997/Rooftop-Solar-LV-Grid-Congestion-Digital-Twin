@@ -1,0 +1,55 @@
+# Default P0 study area: the municipality of Oudewater (Utrecht province; Stedin
+# DSO territory; small ~10k-inhabitant town with good AHN coverage).
+#
+# The AOI is resolved from the municipality boundary (PDOK 'bestuurlijke gebieden').
+# The bbox below is an offline fallback / optional clip — delete it to ingest the
+# whole municipality. Run with:  rsgt ingest -c configs/oudewater.yaml -vv
+aoi:
+  name: oudewater
+  municipality: Oudewater
+  # bbox: [114607, 444338, 123397, 452922]   # full-municipality RD bbox (fallback)
+  buffer_m: 0
+
+target_crs: EPSG:28992
+
+sources:
+  bag3d:
+    enabled: true
+    page_size: 200
+    # max_features: 20000     # uncomment to cap fetched buildings
+
+  ahn:
+    enabled: true
+    version: AHN4             # AHN5 (2023-25, west-first) where available
+    resolution_m: 0.5
+    tile_size_m: 1000         # WCS GetCoverage chunk size (metres)
+    mosaic: true
+    download_dsm: true
+    download_dtm: true
+    download_laz: false       # raw point cloud is large; a P2 concern
+
+  bag:
+    enabled: true
+    wfs_url: https://service.pdok.nl/lv/bag/wfs/v2_0
+    type_names: [bag:pand]
+    # add bag:verblijfsobject for per-dwelling use-function:
+    # type_names: [bag:pand, bag:verblijfsobject]
+
+  pc6:
+    enabled: true
+    wfs_url: https://service.pdok.nl/cbs/postcode6/2023/wfs/v1_0
+    type_names: [postcode6:postcode6]
+
+  # The Netbeheer Nederland capaciteitskaart is the congestion ground truth.
+  # Its ArcGIS FeatureServer URL is not a static link: open
+  # https://capaciteitskaart.netbeheernederland.nl, inspect the network tab for a
+  # ".../FeatureServer" request, and fill in the URL + layer ids below.
+  capacity:
+    enabled: false
+    feature_server: null      # e.g. https://services.arcgis.com/<org>/arcgis/rest/services/<svc>/FeatureServer
+    invoeding_layer: null     # feed-in headroom layer id
+    afname_layer: null        # consumption headroom layer id
+
+http:
+  user_agent: "rsgt/0.0.1 rooftop-solar-grid-twin"
+  max_retries: 4

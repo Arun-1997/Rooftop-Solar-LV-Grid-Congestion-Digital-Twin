@@ -1,0 +1,23 @@
+# Tiny AOI for a fast end-to-end smoke run (a ~300 m block in central Oudewater).
+# Downloads complete in seconds — use this to verify the pipeline before scaling up.
+aoi:
+  name: oudewater_block
+  bbox: [119050, 448800, 119350, 449100]   # RD New (EPSG:28992): minx, miny, maxx, maxy
+
+target_crs: EPSG:28992
+
+sources:
+  bag3d:
+    enabled: true
+    page_size: 200
+  ahn:
+    enabled: true
+    version: AHN4
+    tile_size_m: 1000      # one WCS tile covers this AOI
+    download_dtm: true
+  bag:
+    enabled: true
+  pc6:
+    enabled: true
+  capacity:
+    enabled: false          # see configs/oudewater.yaml for how to enable
