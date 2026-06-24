@@ -129,6 +129,7 @@ rooftop-solar-grid-twin/
   src/rsgt/
     config/               # AOI + run configs (YAML)
     ingest/               # 3D BAG, AHN, BAG, PC6, capacity-map loaders
+    explore/              # P0.5: profile + visualise the ingest (figures + report)
     geometry/             # roof-plane extraction, AHN re-fit
     shading/              # DSM build, horizon/ray-cast, surrogate
     solar/                # pvlib physics, POA transposition, yield
