@@ -1,0 +1,223 @@
+classDiagram
+direction TB
+
+namespace config {
+  class RunConfig {
+    <<pydantic>>
+    +AOIConfig aoi
+    +PathsConfig paths
+    +SourcesConfig sources
+    +HTTPConfig http
+    +str target_crs
+  }
+  class AOIConfig {
+    <<pydantic>>
+    +str name
+    +str municipality
+    +BBox bbox
+    +float buffer_m
+  }
+  class PathsConfig {
+    <<pydantic>>
+    +str root
+    +str raw
+    +str interim
+    +str processed
+  }
+  class HTTPConfig {
+    <<pydantic>>
+    +float timeout_s
+    +int max_retries
+    +str user_agent
+  }
+  class SourcesConfig {
+    <<pydantic>>
+    +BoundaryConfig boundary
+    +Bag3DConfig bag3d
+    +AHNConfig ahn
+    +BagConfig bag
+    +PC6Config pc6
+    +CapacityConfig capacity
+  }
+  class WFSSourceConfig {
+    <<pydantic>>
+    +bool enabled
+    +str wfs_url
+    +list type_names
+    +int page_size
+  }
+  class BagConfig {
+    <<pydantic>>
+  }
+  class PC6Config {
+    <<pydantic>>
+  }
+  class Bag3DConfig {
+    <<pydantic>>
+    +str api_url
+    +str collection
+    +str bbox_crs
+  }
+  class AHNConfig {
+    <<pydantic>>
+    +str version
+    +str wcs_url
+    +str dsm_coverage
+    +str dtm_coverage
+  }
+  class BoundaryConfig {
+    <<pydantic>>
+    +str ogc_url
+    +str name_field
+  }
+  class CapacityConfig {
+    <<pydantic>>
+    +bool enabled
+    +str feature_server
+    +int invoeding_layer
+    +int afname_layer
+  }
+}
+
+namespace clients {
+  class WFSClient {
+    +Session session
+    +get_features(url, type_name, bbox) list
+  }
+  class OGCFeaturesClient {
+    +Session session
+    +iter_pages(url, params) Iterator
+    +bbox_params(bbox, crs, limit) dict
+    +get_geojson_features(url, params) list
+  }
+  class ArcGISFeatureServiceClient {
+    +Session session
+    +query_layer(url, bbox) list
+  }
+  class WCSClient {
+    +Session session
+    +get_coverage(url, coverage_id, bbox) bytes
+  }
+}
+
+namespace domain {
+  class AreaOfInterest {
+    <<dataclass>>
+    +str name
+    +BaseGeometry geometry
+    +BBox bbox
+    +str crs
+    +str source
+    +to_geojson_dict() dict
+    +save(path) Path
+  }
+  class Paths {
+    <<dataclass>>
+    +Path base
+    +Path raw
+    +Path interim
+    +Path processed
+    +from_config(cfg, base_dir) Paths$
+    +ensure()
+  }
+  class IngestSummary {
+    <<dataclass>>
+    +str aoi_name
+    +str aoi_source
+    +BBox aoi_bbox
+    +dict results
+    +to_dict() dict
+  }
+}
+
+namespace manifest {
+  class DownloadManifest {
+    +Path path
+    -dict _entries
+    +get(key) ManifestEntry
+    +is_cached(key, verify) bool
+    +record(key, source, url, path) ManifestEntry
+    +save()
+    +entries() list
+  }
+  class ManifestEntry {
+    <<dataclass>>
+    +str key
+    +str source
+    +str url
+    +str path
+    +int bytes
+    +str sha256
+    +to_dict() dict
+  }
+}
+
+namespace runtime {
+  class cli_mod["cli"] {
+    <<module>>
+    +main(argv) int$
+    +build_parser() ArgumentParser$
+  }
+  class pipeline_mod["pipeline"] {
+    <<module>>
+    +run_ingest(cfg, base_dir, only, force) IngestSummary$
+  }
+  class ingest_mod["ingest sources"] {
+    <<module>>
+    +ingest_bag3d(aoi, cfg) dict$
+    +ingest_ahn(aoi, cfg) dict$
+    +ingest_bag(aoi, cfg) dict$
+    +ingest_pc6(aoi, cfg) dict$
+    +ingest_capacity(aoi, cfg) dict$
+    +ingest_wfs_source(name, cfg, aoi) dict$
+  }
+  class aoi_mod["aoi"] {
+    <<module>>
+    +resolve_aoi(cfg, boundary, session) AreaOfInterest$
+  }
+  class download_mod["download"] {
+    <<module>>
+    +build_session(http) Session$
+    +download_file(session, url, dest) Path$
+  }
+  class crs_mod["geo.crs"] {
+    <<module>>
+    +epsg_uri(crs) str$
+    +reproject_bbox(bbox, src, dst) BBox$
+    +tile_bbox(bbox, size) list$
+  }
+}
+
+RunConfig *-- AOIConfig
+RunConfig *-- PathsConfig
+RunConfig *-- HTTPConfig
+RunConfig *-- SourcesConfig
+SourcesConfig *-- BoundaryConfig
+SourcesConfig *-- Bag3DConfig
+SourcesConfig *-- AHNConfig
+SourcesConfig *-- BagConfig
+SourcesConfig *-- PC6Config
+SourcesConfig *-- CapacityConfig
+WFSSourceConfig <|-- BagConfig
+WFSSourceConfig <|-- PC6Config
+
+DownloadManifest "1" *-- "0..*" ManifestEntry : entries
+
+cli_mod ..> pipeline_mod : runs
+cli_mod ..> aoi_mod
+cli_mod ..> RunConfig
+pipeline_mod ..> RunConfig
+pipeline_mod ..> aoi_mod
+pipeline_mod ..> download_mod
+pipeline_mod ..> ingest_mod : dispatch
+pipeline_mod ..> DownloadManifest
+pipeline_mod ..> IngestSummary
+pipeline_mod ..> Paths
+aoi_mod ..> AreaOfInterest
+aoi_mod ..> OGCFeaturesClient
+ingest_mod ..> WFSClient
+ingest_mod ..> OGCFeaturesClient
+ingest_mod ..> WCSClient
+ingest_mod ..> ArcGISFeatureServiceClient
+ingest_mod ..> DownloadManifest
+download_mod ..> DownloadManifest
