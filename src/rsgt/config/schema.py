@@ -177,6 +177,41 @@ class HTTPConfig(BaseModel):
     user_agent: str = "rsgt/0.0.1 (+https://github.com/) rooftop-solar-grid-twin"
 
 
+class RoofConfig(BaseModel):
+    """P1 Stage 1 — which roof planes to keep from 3D BAG LoD2.2."""
+
+    lod: str = "2.2"
+    min_area_m2: float = Field(default=5.0, gt=0, description="Drop planes smaller than this.")
+    max_tilt_deg: float = Field(default=85.0, gt=0, le=90)
+    drop_north_steep: bool = Field(
+        default=True, description="Drop planes that are both steep and north-facing."
+    )
+    north_azimuth_range: tuple[float, float] = Field(
+        default=(315.0, 45.0), description="Azimuth band counted as 'north' (wraps through 0)."
+    )
+    steep_tilt_deg: float = Field(default=60.0, gt=0, le=90)
+
+
+class SolarConfig(BaseModel):
+    """P1 Stages 3-4 — solar resource + PVWatts physics (unshaded baseline)."""
+
+    # System sizing: installable kWp = plane_area * usable_fraction * module_power_density.
+    usable_fraction: float = Field(
+        default=0.7, gt=0, le=1, description="Fraction of a roof plane usable for modules."
+    )
+    module_power_density_kwp_m2: float = Field(
+        default=0.18, gt=0, description="kWp per m^2 of usable roof (modern modules ~0.18-0.21)."
+    )
+    # PVWatts derates.
+    system_loss_fraction: float = Field(default=0.14, ge=0, lt=1)
+    dc_ac_ratio: float = Field(default=1.1, gt=0, description="Inverter clipping ratio.")
+    gamma_pdc: float = Field(default=-0.004, description="DC power temperature coefficient (/degC).")
+    transposition_model: Literal["haydavies", "perez", "isotropic"] = "haydavies"
+    # Validation reference system (compared against PVGIS's own estimate).
+    reference_tilt_deg: float = Field(default=35.0, ge=0, le=90)
+    reference_azimuth_deg: float = Field(default=180.0, ge=0, lt=360)
+
+
 class RunConfig(BaseModel):
     """Top-level run configuration."""
 
@@ -185,6 +220,8 @@ class RunConfig(BaseModel):
     target_crs: str = RD_NEW
     sources: SourcesConfig = Field(default_factory=SourcesConfig)
     http: HTTPConfig = Field(default_factory=HTTPConfig)
+    roof: RoofConfig = Field(default_factory=RoofConfig)
+    solar: SolarConfig = Field(default_factory=SolarConfig)
 
     @field_validator("target_crs")
     @classmethod
