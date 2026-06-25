@@ -13,6 +13,10 @@ Only resolve and save the AOI (no downloads)::
 Ingest a subset of sources, forcing re-download::
 
     rsgt ingest -c configs/oudewater.yaml --only bag3d ahn --force
+
+Profile + visualise what P0 ingested (the P0.5 explore step)::
+
+    rsgt explore -c configs/oudewater.yaml
 """
 
 from __future__ import annotations
@@ -62,6 +66,24 @@ def _cmd_aoi(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_explore(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    base_dir = args.base_dir or Path(args.config).resolve().parent.parent
+    # Imported lazily: the explore step pulls in geopandas/rasterio/matplotlib,
+    # which the lightweight `rsgt aoi`/`--help` paths must not require.
+    from .explore import run_explore
+
+    profile = run_explore(
+        cfg,
+        base_dir=base_dir,
+        max_raster_dim=args.max_raster_dim,
+        make_plots=not args.no_plots,
+        make_map=not args.no_map,
+    )
+    print(json.dumps(profile.to_dict(), indent=2, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     # -v is a per-subcommand flag (e.g. `rsgt ingest -c x -vv`).
     common = argparse.ArgumentParser(add_help=False)
@@ -85,6 +107,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_aoi.add_argument("-c", "--config", required=True, help="Path to a run-config YAML")
     p_aoi.add_argument("--base-dir", help="Base dir for data/ (default: config's repo root)")
     p_aoi.set_defaults(func=_cmd_aoi)
+
+    p_exp = sub.add_parser(
+        "explore", parents=[common], help="Profile + visualise the P0 ingest (P0.5)"
+    )
+    p_exp.add_argument("-c", "--config", required=True, help="Path to a run-config YAML")
+    p_exp.add_argument("--base-dir", help="Base dir for data/ (default: config's repo root)")
+    p_exp.add_argument(
+        "--max-raster-dim", type=int, default=1200,
+        help="Decimate AHN rasters to this many pixels on the long side (default: 1200)",
+    )
+    p_exp.add_argument(
+        "--no-plots", action="store_true", help="Skip the static figures (no matplotlib)"
+    )
+    p_exp.add_argument(
+        "--no-map", action="store_true", help="Skip the interactive Leaflet map (no folium)"
+    )
+    p_exp.set_defaults(func=_cmd_explore)
 
     return parser
 

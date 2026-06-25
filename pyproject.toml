@@ -32,6 +32,12 @@ geo = [
     "numpy>=1.24",
     "pandas>=2.0",
 ]
+viz = [
+    # P0.5 explore step: static figures for the insight report (matplotlib drives
+    # geopandas' .plot and the raster previews) + an interactive Leaflet map (folium).
+    "matplotlib>=3.7",
+    "folium>=0.15",
+]
 solar = [
     "pvlib>=0.10",
 ]
