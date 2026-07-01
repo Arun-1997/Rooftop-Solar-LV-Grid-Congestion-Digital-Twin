@@ -20,10 +20,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install (geo + viz + dev extras)
+      - name: Install (geo + viz + solar + dev extras)
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[geo,viz,dev]"
+          pip install -e ".[geo,viz,solar,dev]"
 
       - name: Lint
         run: ruff check src tests

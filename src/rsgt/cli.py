@@ -17,6 +17,14 @@ Ingest a subset of sources, forcing re-download::
 Profile + visualise what P0 ingested (the P0.5 explore step)::
 
     rsgt explore -c configs/oudewater.yaml
+
+Run P1 — per-roof physics yield + deck.gl map + PVGIS validation::
+
+    rsgt yield -c configs/oudewater.yaml
+
+Just extract roof planes (P1 step 1), without the solar physics::
+
+    rsgt roofs -c configs/oudewater.yaml
 """
 
 from __future__ import annotations
@@ -84,6 +92,33 @@ def _cmd_explore(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_roofs(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    base_dir = args.base_dir or Path(args.config).resolve().parent.parent
+    from .solar.pipeline import run_roofs
+
+    result = run_roofs(cfg, base_dir=base_dir, force=args.force)
+    print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+def _cmd_yield(args: argparse.Namespace) -> int:
+    cfg = load_config(args.config)
+    base_dir = args.base_dir or Path(args.config).resolve().parent.parent
+    # Lazy import: the P1 physics stack (pvlib) is the [solar] extra.
+    from .solar.pipeline import run_yield
+
+    summary = run_yield(
+        cfg,
+        base_dir=base_dir,
+        make_map=not args.no_map,
+        validate=not args.no_validation,
+        force=args.force,
+    )
+    print(json.dumps(summary.to_dict(), indent=2, ensure_ascii=False))
+    return 1 if summary.result.get("yield", {}).get("status") == "error" else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     # -v is a per-subcommand flag (e.g. `rsgt ingest -c x -vv`).
     common = argparse.ArgumentParser(add_help=False)
@@ -124,6 +159,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-map", action="store_true", help="Skip the interactive Leaflet map (no folium)"
     )
     p_exp.set_defaults(func=_cmd_explore)
+
+    p_roofs = sub.add_parser(
+        "roofs", parents=[common], help="P1 step 1: extract roof planes from 3D BAG"
+    )
+    p_roofs.add_argument("-c", "--config", required=True, help="Path to a run-config YAML")
+    p_roofs.add_argument("--base-dir", help="Base dir for data/ (default: config's repo root)")
+    p_roofs.add_argument("--force", action="store_true", help="Re-extract even if cached")
+    p_roofs.set_defaults(func=_cmd_roofs)
+
+    p_yield = sub.add_parser(
+        "yield", parents=[common], help="Run P1: per-roof physics yield + map + validation"
+    )
+    p_yield.add_argument("-c", "--config", required=True, help="Path to a run-config YAML")
+    p_yield.add_argument("--base-dir", help="Base dir for data/ (default: config's repo root)")
+    p_yield.add_argument("--force", action="store_true", help="Ignore caches; recompute")
+    p_yield.add_argument("--no-map", action="store_true", help="Skip the deck.gl map export")
+    p_yield.add_argument(
+        "--no-validation", action="store_true", help="Skip the PVGIS validation (no network)"
+    )
+    p_yield.set_defaults(func=_cmd_yield)
 
     return parser
 
